@@ -50,3 +50,21 @@ test.serial('react to width', t => {
   process.stdout.emit('resize')
   t.is(log.width, 17)
 })
+
+test.serial('setting dirty', t => {
+  t.false(log.dirty)
+
+  log('foo')
+  t.false(log.dirty)
+
+  log.status('bar')
+  t.true(log.dirty)
+
+  log.prefix = 'baz'
+  log.status('')
+  t.true(log.dirty)
+
+  log.prefix = ''
+  log.status('')
+  t.false(log.dirty)
+})
