@@ -1,6 +1,6 @@
 {
   "name": "logjs",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Simple console based logging",
   "source": "src/index.mjs",
   "module": "src/index.mjs",
