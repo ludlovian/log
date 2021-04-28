@@ -16,10 +16,11 @@ process.stdout &&
   process.stdout.on('resize', () => (state.width = process.stdout.columns))
 
 function _log (
-  msg,
+  args,
   { newline = true, limitWidth, prefix = '', level, colour }
 ) {
   if (level && (!state.level || state.level < level)) return
+  const msg = format(...args)
   let string = prefix + msg
   if (colour && colour in colours) string = colours[colour](string)
   if (limitWidth) string = truncate(string, state.width)
@@ -47,14 +48,11 @@ function merge (old, new_) {
 }
 
 function logger (options) {
-  function log (...args) {
-    return _log(format(...args), options)
-  }
-  Object.defineProperties(log, {
+  return Object.defineProperties((...args) => _log(args, options), {
     _preset: { value: options, configurable: true },
-    _state: { value: state, configurable: true }
+    _state: { value: state, configurable: true },
+    name: { value: 'log', configurable: true }
   })
-  return log
 }
 
 function fixup (log) {
