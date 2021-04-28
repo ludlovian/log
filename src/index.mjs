@@ -1,69 +1,73 @@
+import { format } from 'util'
 import { red, green, yellow, blue, magenta, cyan, grey } from 'kleur/colors'
 
-const CSI = '\u001B['
-const CR = '\r'
-const EOL = `${CSI}0K`
+const colours = { red, green, yellow, blue, magenta, cyan, grey }
+const CLEAR_LINE = '\r\x1b[0K'
 const RE_DECOLOR = /(^|[^\x1b]*)((?:\x1b\[\d*m)|$)/g // eslint-disable-line no-control-regex
 
-export default function log (string, { newline = true, limitWidth } = {}) {
-  if (log.prefix) {
-    string = log.prefix + string
-  }
-  if (limitWidth && log.width) {
-    string = truncateToWidth(string, log.width)
-  }
-  const start = log.dirty ? CR + EOL : ''
-  const end = newline ? '\n' : ''
-
-  log.dirty = newline ? false : !!string
-
-  log.write(start + string + end)
+const state = {
+  dirty: false,
+  width: process.stdout && process.stdout.columns,
+  level: process.env.LOGLEVEL,
+  write: process.stdout.write.bind(process.stdout)
 }
 
-Object.assign(log, {
-  write: process.stdout.write.bind(process.stdout),
+process.stdout &&
+  process.stdout.on('resize', () => (state.width = process.stdout.columns))
 
-  status: string =>
-    log(string, {
-      newline: false,
-      limitWidth: true
-    }),
+function _log (
+  msg,
+  { newline = true, limitWidth, prefix = '', level, colour }
+) {
+  if (level && (!state.level || state.level < level)) return
+  let string = prefix + msg
+  if (colour && colour in colours) string = colours[colour](string)
+  if (limitWidth) string = truncate(string, state.width)
+  if (newline) string = string + '\n'
+  if (state.dirty) string = CLEAR_LINE + string
+  state.dirty = !newline && !!msg
+  state.write(string)
+}
 
-  prefix: '',
-
-  width: process.stdout.columns,
-
-  red,
-  green,
-  yellow,
-  blue,
-  magenta,
-  cyan,
-  grey
-})
-
-process.stdout.on('resize', () => {
-  log.width = process.stdout.columns
-})
-
-function truncateToWidth (string, width) {
-  const maxLength = width - 2 // leave two chars at end
-  if (string.length <= maxLength) return string
+function truncate (string, max) {
+  max -= 2 // leave two chars at end
+  if (string.length <= max) return string
   const parts = []
   let w = 0
-  let full
-  for (const match of string.matchAll(RE_DECOLOR)) {
-    const [, text, ansiCode] = match
-    if (full) {
-      parts.push(ansiCode)
-      continue
-    } else if (w + text.length <= maxLength) {
-      parts.push(text, ansiCode)
-      w += text.length
-    } else {
-      parts.push(text.slice(0, maxLength - w), ansiCode)
-      full = true
-    }
-  }
+  ;[...string.matchAll(RE_DECOLOR)].forEach(([, txt, clr]) => {
+    parts.push(txt.slice(0, max - w), clr)
+    w = Math.min(w + txt.length, max)
+  })
   return parts.join('')
 }
+
+function merge (old, new_) {
+  const prefix = (old.prefix || '') + (new_.prefix || '')
+  return { ...old, ...new_, prefix }
+}
+
+function logger (options) {
+  function log (...args) {
+    return _log(format(...args), options)
+  }
+  Object.defineProperties(log, {
+    _preset: { value: options, configurable: true },
+    _state: { value: state, configurable: true }
+  })
+  return log
+}
+
+function fixup (log) {
+  const p = log._preset
+  Object.assign(log, {
+    status: logger(merge(p, { newline: false, limitWidth: true })),
+    level: level => fixup(logger(merge(p, { level }))),
+    colour: colour => fixup(logger(merge(p, { colour }))),
+    prefix: prefix => fixup(logger(merge(p, { prefix }))),
+    ...colours
+  })
+  return log
+}
+
+const log = fixup(logger({}))
+export default log

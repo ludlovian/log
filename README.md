@@ -10,24 +10,30 @@ Single default object `log` exported
 
 Writes a line of text to the console. Cleans up if partial `log.status` lines have already been written.
 
-Includes any `log.prefix` set.
-
 ### log.status
 `log.status(text)`
 
 Writes a line of text *without a newline*
 
-Truncates the text to keep within `log.width` if set. Also includes any `log.prefix` set
+Truncates the text to keep within console width (if set)
 
 ### log.prefix
-`log.prefix = 'Message: '`
+`logger = log.prefix('abc')`
 
-Sets a prefix to prepend to each message
+Creates a logger which has a prefix prepended to each message. You can chain these.
 
-### log.width
+### log.colour
+`logger = log.colour('red')`
 
-Sets a width used to truncate `log.status` messages. Set automatically (and monitored) if run via a TTY
+Creates a logger with preset colours. The colour functions are also available as `log.red` etc.
 
-### log.[colour]
+### log.level
+`logger = log.level(3).colour('blue').prefix('TRACE: ')`
 
-Main colours from `kleur` are attached here to add touch of glitz
+Creates a logger which only logs if the level is that set to that level or above.
+
+Leve is set by LOGLEVEL env var, or by `_state.level`
+
+### _state
+
+Internal gubbins

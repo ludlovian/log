@@ -11,9 +11,12 @@ const RESET = '\x1b[39m'
 
 test.before.each(context => {
   context.log = []
-  log.write = s => context.log.push(s)
-  log.dirty = false
-  log.width = 100
+  Object.assign(log._state, {
+    write: s => context.log.push(s),
+    dirty: false,
+    width: 100,
+    level: undefined
+  })
 })
 
 test('Basic logging', context => {
@@ -31,57 +34,80 @@ test('Basic status', context => {
 })
 
 test('prefix', context => {
-  log.prefix = 'foo'
-  log('bar')
-  log.prefix = ''
-  log.status('baz')
-  assert.equal(context.log, ['foobar\n', 'baz'])
+  const log1 = log.prefix('foo')
+  log1('bar')
+
+  const log2 = log1.prefix('bar')
+  log2.status('baz')
+  assert.equal(context.log, ['foobar\n', 'foobarbaz'])
 })
 
-test('colours', context => {
+test('simple colours', context => {
   log(`${log.red('foo')} ${log.blue('bar')}`)
 
   assert.equal(context.log, [`${RED}foo${RESET} ${BLUE}bar${RESET}\n`])
 })
 
+test('colour logger', context => {
+  const log2 = log.colour('red')
+  log2(`foo ${log.blue('bar')}`)
+
+  assert.equal(context.log, [
+    [RED, 'foo ', BLUE, 'bar', RESET, RED, RESET, '\n'].join('')
+  ])
+})
+
 test('truncate mono', context => {
-  log.width = 5
+  log._state.width = 5
   log.status('foobar')
 
   assert.equal(context.log, ['foo'])
 })
 
 test('truncate colours', context => {
-  log.width = 6
-  log.status(`${log.red('foo')}${log.blue('bar')}${log.green('baz')}`)
+  log._state.width = 6
+  log.colour('red').status(`foo${log.blue('bar')}${log.green('baz')}`)
 
   assert.equal(context.log, [
-    `${RED}foo${RESET}${BLUE}b${RESET}${GREEN}${RESET}`
+    [RED, 'foo', BLUE, 'b', RESET, RED, GREEN, RESET, RED, RESET].join('')
   ])
 })
 
 test('react to width', () => {
   process.stdout.columns = 17
   process.stdout.emit('resize')
-  assert.is(log.width, 17)
+  assert.is(log._state.width, 17)
 })
 
 test('setting dirty', () => {
-  assert.not.ok(log.dirty)
+  assert.not.ok(log._state.dirty)
 
   log('foo')
-  assert.not.ok(log.dirty)
+  assert.not.ok(log._state.dirty)
 
   log.status('bar')
-  assert.ok(log.dirty)
+  assert.ok(log._state.dirty)
 
-  log.prefix = 'baz'
-  log.status('')
-  assert.ok(log.dirty)
+  log.prefix('bar').status('')
+  assert.not.ok(log._state.dirty)
+})
 
-  log.prefix = ''
-  log.status('')
-  assert.not.ok(log.dirty)
+test('log levels', context => {
+  // should not appeaer as no level set
+  log.level(1)('foobar')
+
+  log._state.level = 2
+  log('foo') // appears always
+  log.level(2)('bar') // appears based on level
+  log.level(3)('baz') // misses based on logger level
+  log.level(2).level(3)('quux') // missed based on later level
+
+  assert.equal(context.log, ['foo\n', 'bar\n'])
+})
+
+test('printf like formatting', context => {
+  log('foo %d %s', 17, 'bar')
+  assert.equal(context.log, ['foo 17 bar\n'])
 })
 
 test.run()
