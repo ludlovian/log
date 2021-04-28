@@ -110,4 +110,12 @@ test('printf like formatting', context => {
   assert.equal(context.log, ['foo 17 bar\n'])
 })
 
+test('default colours', context => {
+  log.colour()('foo')
+  log.colour()('bar')
+  assert.equal(context.log, [
+    RED + 'foo' + RESET + '\n',
+    GREEN + 'bar' + RESET + '\n'
+  ])
+})
 test.run()

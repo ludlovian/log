@@ -1,7 +1,8 @@
 import { format } from 'util'
 import { red, green, yellow, blue, magenta, cyan, grey } from 'kleur/colors'
 
-const colours = { red, green, yellow, blue, magenta, cyan, grey }
+const colourFuncs = { red, green, yellow, blue, magenta, cyan, grey }
+const colours = Object.keys(colourFuncs)
 const CLEAR_LINE = '\r\x1b[0K'
 const RE_DECOLOR = /(^|[^\x1b]*)((?:\x1b\[\d*m)|$)/g // eslint-disable-line no-control-regex
 
@@ -22,7 +23,7 @@ function _log (
   if (level && (!state.level || state.level < level)) return
   const msg = format(...args)
   let string = prefix + msg
-  if (colour && colour in colours) string = colours[colour](string)
+  if (colour && colour in colourFuncs) string = colourFuncs[colour](string)
   if (limitWidth) string = truncate(string, state.width)
   if (newline) string = string + '\n'
   if (state.dirty) string = CLEAR_LINE + string
@@ -55,14 +56,21 @@ function logger (options) {
   })
 }
 
+function nextColour () {
+  const clr = colours.shift()
+  colours.push(clr)
+  return clr
+}
+
 function fixup (log) {
   const p = log._preset
   Object.assign(log, {
     status: logger(merge(p, { newline: false, limitWidth: true })),
     level: level => fixup(logger(merge(p, { level }))),
-    colour: colour => fixup(logger(merge(p, { colour }))),
+    colour: colour =>
+      fixup(logger(merge(p, { colour: colour || nextColour() }))),
     prefix: prefix => fixup(logger(merge(p, { prefix }))),
-    ...colours
+    ...colourFuncs
   })
   return log
 }
