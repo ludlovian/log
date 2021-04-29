@@ -1,7 +1,7 @@
 import { format } from 'util'
-import { red, green, yellow, blue, magenta, cyan, grey } from 'kleur/colors'
+import { red, green, yellow, blue, magenta, cyan } from 'kleur/colors'
 
-const colourFuncs = { red, green, yellow, blue, magenta, cyan, grey }
+const colourFuncs = { cyan, green, yellow, blue, magenta, red }
 const colours = Object.keys(colourFuncs)
 const CLEAR_LINE = '\r\x1b[0K'
 const RE_DECOLOR = /(^|[^\x1b]*)((?:\x1b\[\d*m)|$)/g // eslint-disable-line no-control-regex
