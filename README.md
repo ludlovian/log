@@ -27,6 +27,8 @@ Creates a logger which has a prefix prepended to each message. You can chain the
 
 Creates a logger with preset colours. The colour functions are also available as `log.red` etc.
 
+If you don't specify a colour, the logger will be assigned a random one.
+
 ### log.level
 `logger = log.level(3).colour('blue').prefix('TRACE: ')`
 

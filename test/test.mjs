@@ -4,10 +4,9 @@ import * as assert from 'uvu/assert'
 import log from '../src/index.mjs'
 
 const CLR_EOL = '\x1b[0K'
-const RED = '\x1b[31m'
-const BLUE = '\x1b[34m'
-const GREEN = '\x1b[32m'
-const RESET = '\x1b[39m'
+const RED = '\x1b[31;22m'
+const BLUE = '\x1b[34;22m'
+const RESET = '\x1b[39;22m'
 
 test.before.each(context => {
   context.log = []
@@ -52,9 +51,7 @@ test('colour logger', context => {
   const log2 = log.colour('red')
   log2(`foo ${log.blue('bar')}`)
 
-  assert.equal(context.log, [
-    [RED, 'foo ', BLUE, 'bar', RESET, RED, RESET, '\n'].join('')
-  ])
+  assert.equal(context.log, [[RED, 'foo ', BLUE, 'bar', RESET, '\n'].join('')])
 })
 
 test('truncate mono', context => {
@@ -68,9 +65,7 @@ test('truncate colours', context => {
   log._state.width = 6
   log.colour('red').status(`foo${log.blue('bar')}${log.green('baz')}`)
 
-  assert.equal(context.log, [
-    [RED, 'foo', BLUE, 'b', RESET, RED, GREEN, RESET, RED, RESET].join('')
-  ])
+  assert.equal(context.log, [[RED, 'foo', BLUE, 'b', RESET].join('')])
 })
 
 test('react to width', () => {
@@ -113,9 +108,14 @@ test('printf like formatting', context => {
 test('default colours', context => {
   log.colour()('foo')
   log.colour()('bar')
-  assert.equal(context.log, [
-    RED + 'foo' + RESET + '\n',
-    GREEN + 'bar' + RESET + '\n'
-  ])
+
+  // eslint-disable-next-line no-control-regex
+  const rgx = /^\x1b\[38;5;\d+;1m(\w+)\x1b\[39;22m\n$/
+  const res = context.log.map(line => {
+    const m = rgx.exec(line)
+    return m && m[1]
+  })
+
+  assert.equal(res, ['foo', 'bar'])
 })
 test.run()

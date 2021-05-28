@@ -1,15 +1,13 @@
 import { format } from 'util'
-import { red, green, yellow, blue, magenta, cyan } from 'kleur/colors'
+import { painter, randomColour, colours, truncate } from './colours.mjs'
 
-const colourFuncs = { cyan, green, yellow, blue, magenta, red }
-const colours = Object.keys(colourFuncs)
 const CLEAR_LINE = '\r\x1b[0K'
-const RE_DECOLOR = /(^|[^\x1b]*)((?:\x1b\[\d*m)|$)/g // eslint-disable-line no-control-regex
 
 const state = {
   dirty: false,
   width: process.stdout && process.stdout.columns,
-  level: process.env.LOGLEVEL,
+  /* c8 ignore next */
+  level: process.env.LOGLEVEL ? parseInt(process.env.LOGLEVEL, 10) : undefined,
   write: process.stdout.write.bind(process.stdout)
 }
 
@@ -23,7 +21,7 @@ function _log (
   if (level && (!state.level || state.level < level)) return
   const msg = format(...args)
   let string = prefix + msg
-  if (colour && colour in colourFuncs) string = colourFuncs[colour](string)
+  if (colour != null) string = painter(colour)(string)
   if (limitWidth) string = truncate(string, state.width)
   if (newline) string = string + '\n'
   if (state.dirty) string = CLEAR_LINE + string
@@ -31,49 +29,39 @@ function _log (
   state.write(string)
 }
 
-function truncate (string, max) {
-  max -= 2 // leave two chars at end
-  if (string.length <= max) return string
-  const parts = []
-  let w = 0
-  ;[...string.matchAll(RE_DECOLOR)].forEach(([, txt, clr]) => {
-    parts.push(txt.slice(0, max - w), clr)
-    w = Math.min(w + txt.length, max)
-  })
-  return parts.join('')
-}
+function makeLogger (base, changes = {}) {
+  const baseOptions = base ? base._preset : {}
+  const options = {
+    ...baseOptions,
+    ...changes,
+    prefix: (baseOptions.prefix || '') + (changes.prefix || '')
+  }
+  const configurable = true
+  const fn = (...args) => _log(args, options)
+  const addLevel = level => makeLogger(fn, { level })
+  const addColour = c =>
+    makeLogger(fn, { colour: c in colours ? colours[c] : randomColour() })
+  const addPrefix = prefix => makeLogger(fn, { prefix })
+  const status = () => makeLogger(fn, { newline: false, limitWidth: true })
 
-function merge (old, new_) {
-  const prefix = (old.prefix || '') + (new_.prefix || '')
-  return { ...old, ...new_, prefix }
-}
+  const colourFuncs = Object.fromEntries(
+    Object.entries(colours).map(([name, n]) => [
+      name,
+      { value: painter(n), configurable }
+    ])
+  )
 
-function logger (options) {
-  return Object.defineProperties((...args) => _log(args, options), {
-    _preset: { value: options, configurable: true },
-    _state: { value: state, configurable: true },
-    name: { value: 'log', configurable: true }
-  })
-}
-
-function nextColour () {
-  const clr = colours.shift()
-  colours.push(clr)
-  return clr
-}
-
-function fixup (log) {
-  const p = log._preset
-  Object.assign(log, {
-    status: logger(merge(p, { newline: false, limitWidth: true })),
-    level: level => fixup(logger(merge(p, { level }))),
-    colour: colour =>
-      fixup(logger(merge(p, { colour: colour || nextColour() }))),
-    prefix: prefix => fixup(logger(merge(p, { prefix }))),
+  return Object.defineProperties(fn, {
+    _preset: { value: options, configurable },
+    _state: { value: state, configurable },
+    name: { value: 'log', configurable },
+    level: { value: addLevel, configurable },
+    colour: { value: addColour, configurable },
+    prefix: { value: addPrefix, configurable },
+    status: { get: status, configurable },
     ...colourFuncs
   })
-  return log
 }
 
-const log = fixup(logger({}))
+const log = makeLogger()
 export default log

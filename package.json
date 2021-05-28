@@ -10,7 +10,7 @@
     "clean": "rm -rf dist/ coverage/ node_modules/.cache/",
     "format": "prettier-standard {src,test}/*.mjs",
     "lint": "standard {src,test}/*.mjs|snazzy",
-    "test": "FORCE_COLOR=1 c8 uvu",
+    "test": "c8 uvu",
     "coverage": "npm run test && c8 report --reporter=html && sirv coverage/ -H 0.0.0.0 -p 8000"
   },
   "repository": {
@@ -25,8 +25,5 @@
   "homepage": "https://github.com/ludlovian/logjs#readme",
   "devDependencies": {
     "uvu": "^0.5.1"
-  },
-  "dependencies": {
-    "kleur": "^4.1.4"
   }
 }
